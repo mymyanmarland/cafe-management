@@ -1,8 +1,1 @@
-{
-  "name": "cafe-management",
-  "version": "1.0.0",
-  "description": "Cafe Shop Management System - full stack (Express + SQLite + vanilla JS frontend)",
-  "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "dependencies": { "express": "^4.21.2" }
-}
+{"dependencies":{"express":"^4.21.2","pg":"^8.13.1"},"description":"Cafe Shop Management System - full stack (Express + PostgreSQL + vanilla JS frontend)","main":"server.js","name":"cafe-management","scripts":{"start":"node server.js"},"version":"1.0.0"}
