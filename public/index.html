@@ -14,6 +14,9 @@
   body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
   header { background: linear-gradient(135deg, #3b2a1c, #5c3d24); color: #fff; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
   header h1 { font-size: 20px; } header h1 span { color: #e8b04b; }
+  .userbox { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .userbox .role { background: rgba(255,255,255,.18); padding: 3px 10px; border-radius: 999px; font-size: 12px; }
+  .userbox button { background: rgba(255,255,255,.15); color: #fff; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
   nav { display: flex; gap: 8px; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 62px; z-index: 9; }
   nav button { border: 1px solid var(--line); background: #fff; padding: 9px 18px; border-radius: 999px; cursor: pointer; font-size: 14px; color: var(--ink); }
   nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
@@ -39,6 +42,8 @@
   .badge.served { background: #e8f5e9; color: var(--green); }
   .badge.completed { background: #f1e9dc; color: var(--muted); }
   .badge.cancelled { background: #fbe9e7; color: var(--red); }
+  .badge.admin { background: #ede7f6; color: #5e35b1; }
+  .badge.staff { background: #e0f2f1; color: #00796b; }
   .layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
   .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
   .menu-item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; cursor: pointer; transition: transform .1s; }
@@ -61,22 +66,50 @@
   .filter-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .filter-row button.active { background: var(--ink); color: #fff; }
   .empty { color: var(--muted); text-align: center; padding: 40px; }
+  /* Login */
+  #login-view { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #3b2a1c, #5c3d24); padding: 20px; }
+  .login-card { background: #fff; border-radius: 18px; padding: 36px; width: 380px; max-width: 94vw; text-align: center; }
+  .login-card h1 { font-size: 26px; margin-bottom: 4px; }
+  .login-card p { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .login-card input { text-align: left; }
+  .login-error { color: var(--red); font-size: 13px; margin-bottom: 10px; min-height: 18px; }
+  .hint { margin-top: 14px; font-size: 12px; color: var(--muted); }
   @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } nav { top: 60px; overflow-x: auto; } }
 </style>
 </head>
 <body>
+
+<!-- LOGIN -->
+<div id="login-view">
+  <div class="login-card">
+    <h1>☕ Brew &amp; Bean</h1>
+    <p>Cafe Management System — sign in</p>
+    <div class="login-error" id="login-error"></div>
+    <input id="login-user" placeholder="Username" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn primary" style="width:100%;padding:12px" onclick="doLogin()">Sign In</button>
+    <div class="hint">Default admin: <b>admin</b> / <b>admin123</b><br>Change it after first login.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
 <header>
   <h1>☕ Brew &amp; Bean <span>POS</span></h1>
-  <div id="clock"></div>
+  <div class="userbox">
+    <span id="clock" style="color:#e8d9c3;font-size:13px"></span>
+    <span id="whoami"></span><span class="role" id="myrole"></span>
+    <button onclick="doLogout()">Logout</button>
+  </div>
 </header>
-<nav>
+<nav id="main-nav">
   <button data-view="dashboard" class="active">📊 Dashboard</button>
   <button data-view="pos">🧾 New Order</button>
   <button data-view="orders">📦 Orders</button>
   <button data-view="menu">🍰 Menu</button>
+  <button data-view="users" id="nav-users" style="display:none">👥 Users</button>
 </nav>
 <main>
-  <!-- DASHBOARD -->
   <section id="dashboard" class="view active">
     <h2>Today's Overview</h2>
     <div class="cards">
@@ -88,7 +121,6 @@
     <table><thead><tr><th>Item</th><th>Sold</th><th>Revenue</th></tr></thead><tbody id="top-body"></tbody></table>
   </section>
 
-  <!-- POS -->
   <section id="pos" class="view">
     <h2>New Order</h2>
     <div class="layout">
@@ -109,7 +141,6 @@
     </div>
   </section>
 
-  <!-- ORDERS -->
   <section id="orders" class="view">
     <h2>Orders</h2>
     <div class="filter-row" id="status-filters">
@@ -123,12 +154,18 @@
     <div id="orders-list"></div>
   </section>
 
-  <!-- MENU -->
   <section id="menu" class="view">
-    <h2>Menu Management <button class="btn primary" style="float:right" onclick="openMenuModal()">+ Add Item</button></h2>
-    <table><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Available</th><th>Actions</th></tr></thead><tbody id="menu-body"></tbody></table>
+    <h2>Menu Management <span id="menu-add-wrap"><button class="btn primary" style="float:right" onclick="openMenuModal()">+ Add Item</button></span></h2>
+    <table><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Available</th><th id="menu-actions-th">Actions</th></tr></thead><tbody id="menu-body"></tbody></table>
+  </section>
+
+  <section id="users" class="view">
+    <h2>User Management <button class="btn primary" style="float:right" onclick="openUserModal()">+ Add User</button></h2>
+    <p style="color:#8a7a6a;font-size:14px;margin-bottom:16px">Admins can manage everything. Staff can take orders and view the dashboard, but cannot edit the menu or manage users.</p>
+    <table><thead><tr><th>Username</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead><tbody id="users-body"></tbody></table>
   </section>
 </main>
+</div>
 
 <div class="modal-bg" id="menu-modal">
   <div class="modal">
@@ -148,47 +185,112 @@
   </div>
 </div>
 
+<div class="modal-bg" id="user-modal">
+  <div class="modal">
+    <h3>Add User</h3>
+    <input id="u-name" placeholder="Username">
+    <input id="u-pass" type="password" placeholder="Password">
+    <select id="u-role"><option value="staff">Staff</option><option value="admin">Admin</option></select>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button class="btn ghost" onclick="$('user-modal').classList.remove('open')">Cancel</button>
+      <button class="btn primary" onclick="saveUser()">Create</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const api = (m, url, body) => fetch(url, { method: m, headers: {"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : undefined }).then(r => r.json());
 const $ = id => document.getElementById(id);
 const money = n => "$" + Number(n).toFixed(2);
-
+let token = localStorage.getItem("cafe_token") || "";
+let me = null;
 let menu = [], cart = {}, orderFilter = "all", catFilter = "all";
 
-// Navigation
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("nav button").forEach(x => x.classList.remove("active"));
-  document.querySelectorAll(".view").forEach(x => x.classList.remove("active"));
-  b.classList.add("active"); $(b.dataset.view).classList.add("active");
-  if (b.dataset.view === "dashboard") loadStats();
-  if (b.dataset.view === "orders") loadOrders();
-  if (b.dataset.view === "menu") loadMenuTable();
-  if (b.dataset.view === "pos") loadMenu();
-});
+async function api(m, url, body) {
+  const r = await fetch(url, {
+    method: m,
+    headers: { "Content-Type": "application/json", ...(token ? { "Authorization": "Bearer " + token } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (r.status === 401) { doLogout(true); throw new Error("session expired"); }
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || "request failed");
+  return data;
+}
 
-// Clock
-setInterval(() => { $("clock").textContent = new Date().toLocaleString(); }, 1000);
+// ---------- Auth ----------
+async function doLogin() {
+  $("login-error").textContent = "";
+  const username = $("login-user").value.trim(), password = $("login-pass").value;
+  if (!username || !password) { $("login-error").textContent = "Enter username and password."; return; }
+  try {
+    const r = await fetch("/api/auth/login", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ username, password }) });
+    const data = await r.json();
+    if (!r.ok) { $("login-error").textContent = data.error || "Login failed."; return; }
+    token = data.token; me = data.user;
+    localStorage.setItem("cafe_token", token);
+    enterApp();
+  } catch (e) { $("login-error").textContent = "Cannot reach server."; }
+}
+async function doLogout(silent) {
+  try { if (token) await fetch("/api/auth/logout", { method: "POST", headers: { "Authorization": "Bearer " + token } }); } catch (e) {}
+  token = ""; me = null;
+  localStorage.removeItem("cafe_token");
+  $("app").style.display = "none";
+  $("login-view").style.display = "flex";
+  $("login-pass").value = "";
+  if (!silent) $("login-error").textContent = "";
+}
+async function enterApp() {
+  $("login-view").style.display = "none";
+  $("app").style.display = "block";
+  $("whoami").textContent = me.username;
+  $("myrole").textContent = me.role;
+  const isAdmin = me.role === "admin";
+  $("nav-users").style.display = isAdmin ? "" : "none";
+  $("menu-add-wrap").style.display = isAdmin ? "" : "none";
+  $("menu-actions-th").style.display = isAdmin ? "" : "none";
+  showView("dashboard");
+  loadStats(); loadMenu();
+}
+
+// ---------- Navigation ----------
+document.querySelectorAll("#main-nav button").forEach(b => b.onclick = () => showView(b.dataset.view));
+function showView(v) {
+  document.querySelectorAll("#main-nav button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
+  document.querySelectorAll(".view").forEach(x => x.classList.toggle("active", x.id === v));
+  if (v === "dashboard") loadStats();
+  if (v === "orders") loadOrders();
+  if (v === "menu") loadMenuTable();
+  if (v === "pos") loadMenu();
+  if (v === "users") loadUsers();
+}
+
+setInterval(() => { const c = $("clock"); if (c) c.textContent = new Date().toLocaleString(); }, 1000);
 
 // ---------- Dashboard ----------
 async function loadStats() {
-  const s = await api("GET", "/api/stats");
-  $("st-revenue").textContent = money(s.revenue);
-  $("st-orders").textContent = s.orders;
-  $("st-active").textContent = s.active;
-  $("top-body").innerHTML = s.top.length
-    ? s.top.map(t => `<tr><td>${t.name}</td><td>${t.sold}</td><td>${money(t.revenue)}</td></tr>`).join("")
-    : `<tr><td colspan="3" class="empty">No sales yet</td></tr>`;
+  try {
+    const s = await api("GET", "/api/stats");
+    $("st-revenue").textContent = money(s.revenue);
+    $("st-orders").textContent = s.orders;
+    $("st-active").textContent = s.active;
+    $("top-body").innerHTML = s.top.length
+      ? s.top.map(t => `<tr><td>${t.name}</td><td>${t.sold}</td><td>${money(t.revenue)}</td></tr>`).join("")
+      : `<tr><td colspan="3" class="empty">No sales yet</td></tr>`;
+  } catch (e) {}
 }
 
 // ---------- POS ----------
 async function loadMenu() {
-  menu = await api("GET", "/api/menu");
-  const cats = ["all", ...new Set(menu.map(m => m.category))];
-  $("cat-filters").innerHTML = cats.map(c => `<button class="btn ghost ${c===catFilter?'active':''}" onclick="setCat('${c}')">${c}</button>`).join("");
-  const items = menu.filter(m => (catFilter === "all" || m.category === catFilter) && m.available);
-  $("menu-grid").innerHTML = items.length
-    ? items.map(m => `<div class="menu-item" onclick="addToCart(${m.id})"><div class="cat">${m.category}</div><h4>${m.name}</h4><div class="price">${money(m.price)}</div></div>`).join("")
-    : `<div class="empty">No items</div>`;
+  try {
+    menu = await api("GET", "/api/menu");
+    const cats = ["all", ...new Set(menu.map(m => m.category))];
+    $("cat-filters").innerHTML = cats.map(c => `<button class="btn ghost ${c===catFilter?'active':''}" onclick="setCat('${c}')">${c}</button>`).join("");
+    const items = menu.filter(m => (catFilter === "all" || m.category === catFilter) && m.available);
+    $("menu-grid").innerHTML = items.length
+      ? items.map(m => `<div class="menu-item" onclick="addToCart(${m.id})"><div class="cat">${m.category}</div><h4>${m.name}</h4><div class="price">${money(m.price)}</div></div>`).join("")
+      : `<div class="empty">No items</div>`;
+  } catch (e) {}
 }
 function setCat(c) { catFilter = c; loadMenu(); }
 function addToCart(id) {
@@ -212,10 +314,11 @@ function renderCart() {
 async function placeOrder() {
   const items = Object.values(cart).map(l => ({ menu_id: l.id, qty: l.qty }));
   if (!items.length) return alert("Cart is empty");
-  const o = await api("POST", "/api/orders", { table_no: $("table-no").value, order_type: $("order-type").value, items });
-  if (o.error) return alert(o.error);
-  cart = {}; $("table-no").value = ""; renderCart();
-  alert(`Order #${o.id} placed! Total ${money(o.total)}`);
+  try {
+    const o = await api("POST", "/api/orders", { table_no: $("table-no").value, order_type: $("order-type").value, items });
+    cart = {}; $("table-no").value = ""; renderCart();
+    alert(`Order #${o.id} placed! Total ${money(o.total)}`);
+  } catch (e) { alert(e.message); }
 }
 
 // ---------- Orders ----------
@@ -225,37 +328,43 @@ document.querySelectorAll("#status-filters button").forEach(b => b.onclick = () 
 });
 const NEXT = { pending: "preparing", preparing: "served", served: "completed" };
 async function loadOrders() {
-  const orders = await api("GET", "/api/orders");
-  const list = orders.filter(o => orderFilter === "all" || o.status === orderFilter);
-  $("orders-list").innerHTML = list.length ? list.map(o => `
-    <div class="order-card">
-      <div class="head">
-        <strong>#${o.id} — ${o.order_type === "dine-in" ? "Table " + (o.table_no || "?") : "Takeaway"}</strong>
-        <span class="badge ${o.status}">${o.status}</span>
-      </div>
-      <div style="font-size:13px;color:#8a7a6a;margin-bottom:8px">${o.created_at} · ${money(o.total)}</div>
-      ${o.items.map(i => `<div style="font-size:14px">${i.qty}× ${i.name} <span style="color:#8a7a6a">${money(i.price)}</span></div>`).join("")}
-      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-        ${NEXT[o.status] ? `<button class="btn primary small" onclick="setStatus(${o.id},'${NEXT[o.status]}')">Mark ${NEXT[o.status]}</button>` : ""}
-        ${o.status !== "cancelled" && o.status !== "completed" ? `<button class="btn danger small" onclick="setStatus(${o.id},'cancelled')">Cancel</button>` : ""}
-        ${o.status === "cancelled" || o.status === "completed" ? `<button class="btn ghost small" onclick="deleteOrder(${o.id})">Delete</button>` : ""}
-      </div>
-    </div>`).join("")
-    : `<div class="empty">No orders</div>`;
+  try {
+    const orders = await api("GET", "/api/orders");
+    const list = orders.filter(o => orderFilter === "all" || o.status === orderFilter);
+    const isAdmin = me && me.role === "admin";
+    $("orders-list").innerHTML = list.length ? list.map(o => `
+      <div class="order-card">
+        <div class="head">
+          <strong>#${o.id} — ${o.order_type === "dine-in" ? "Table " + (o.table_no || "?") : "Takeaway"}</strong>
+          <span class="badge ${o.status}">${o.status}</span>
+        </div>
+        <div style="font-size:13px;color:#8a7a6a;margin-bottom:8px">${o.created_at} · ${money(o.total)}</div>
+        ${o.items.map(i => `<div style="font-size:14px">${i.qty}× ${i.name} <span style="color:#8a7a6a">${money(i.price)}</span></div>`).join("")}
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+          ${NEXT[o.status] ? `<button class="btn primary small" onclick="setStatus(${o.id},'${NEXT[o.status]}')">Mark ${NEXT[o.status]}</button>` : ""}
+          ${o.status !== "cancelled" && o.status !== "completed" ? `<button class="btn danger small" onclick="setStatus(${o.id},'cancelled')">Cancel</button>` : ""}
+          ${isAdmin && (o.status === "cancelled" || o.status === "completed") ? `<button class="btn ghost small" onclick="deleteOrder(${o.id})">Delete</button>` : ""}
+        </div>
+      </div>`).join("")
+      : `<div class="empty">No orders</div>`;
+  } catch (e) {}
 }
-async function setStatus(id, s) { await api("PUT", `/api/orders/${id}/status`, { status: s }); loadOrders(); loadStats(); }
-async function deleteOrder(id) { if (confirm("Delete order #" + id + "?")) { await api("DELETE", `/api/orders/${id}`); loadOrders(); } }
+async function setStatus(id, s) { try { await api("PUT", `/api/orders/${id}/status`, { status: s }); loadOrders(); loadStats(); } catch (e) { alert(e.message); } }
+async function deleteOrder(id) { if (confirm("Delete order #" + id + "?")) { try { await api("DELETE", `/api/orders/${id}`); loadOrders(); } catch (e) { alert(e.message); } } }
 
-// ---------- Menu management ----------
+// ---------- Menu management (admin) ----------
 async function loadMenuTable() {
-  menu = await api("GET", "/api/menu");
-  $("menu-body").innerHTML = menu.map(m => `<tr>
-    <td><strong>${m.name}</strong><div style="font-size:12px;color:#8a7a6a">${m.description||""}</div></td>
-    <td>${m.category}</td><td>${money(m.price)}</td>
-    <td>${m.available ? "✅" : "❌"}</td>
-    <td><button class="btn ghost small" onclick="openMenuModal(${m.id})">Edit</button>
-        <button class="btn danger small" onclick="deleteMenu(${m.id})">Delete</button></td>
-  </tr>`).join("");
+  try {
+    menu = await api("GET", "/api/menu");
+    const isAdmin = me && me.role === "admin";
+    $("menu-body").innerHTML = menu.map(m => `<tr>
+      <td><strong>${m.name}</strong><div style="font-size:12px;color:#8a7a6a">${m.description||""}</div></td>
+      <td>${m.category}</td><td>${money(m.price)}</td>
+      <td>${m.available ? "✅" : "❌"}</td>
+      <td style="display:${isAdmin ? "" : "none"}"><button class="btn ghost small" onclick="openMenuModal(${m.id})">Edit</button>
+          <button class="btn danger small" onclick="deleteMenu(${m.id})">Delete</button></td>
+    </tr>`).join("");
+  } catch (e) {}
 }
 function openMenuModal(id) {
   $("modal-title").textContent = id ? "Edit Menu Item" : "Add Menu Item";
@@ -273,14 +382,60 @@ async function saveMenuItem() {
   const id = $("m-id").value;
   const body = { name: $("m-name").value, category: $("m-category").value, price: parseFloat($("m-price").value), description: $("m-desc").value, available: $("m-available").checked };
   if (!body.name || isNaN(body.price)) return alert("Name and price required");
-  const r = id ? await api("PUT", `/api/menu/${id}`, body) : await api("POST", "/api/menu", body);
-  if (r.error) return alert(r.error);
-  closeMenuModal(); loadMenuTable();
+  try {
+    if (id) await api("PUT", `/api/menu/${id}`, body); else await api("POST", "/api/menu", body);
+    closeMenuModal(); loadMenuTable();
+  } catch (e) { alert(e.message); }
 }
-async function deleteMenu(id) { if (confirm("Delete this item?")) { await api("DELETE", `/api/menu/${id}`); loadMenuTable(); } }
+async function deleteMenu(id) { if (confirm("Delete this item?")) { try { await api("DELETE", `/api/menu/${id}`); loadMenuTable(); } catch (e) { alert(e.message); } } }
 
-// init
-loadStats(); loadMenu();
+// ---------- User management (admin) ----------
+async function loadUsers() {
+  try {
+    const users = await api("GET", "/api/users");
+    $("users-body").innerHTML = users.map(u => `<tr>
+      <td><strong>${u.username}</strong>${u.id === me.id ? ' <span style="font-size:12px;color:#8a7a6a">(you)</span>' : ""}</td>
+      <td><span class="badge ${u.role}">${u.role}</span></td>
+      <td style="font-size:13px;color:#8a7a6a">${u.created_at}</td>
+      <td>${u.id === me.id ? "" : `
+        <button class="btn ghost small" onclick="toggleRole(${u.id},'${u.role}')">${u.role === "admin" ? "Make staff" : "Make admin"}</button>
+        <button class="btn ghost small" onclick="resetPw(${u.id})">Reset PW</button>
+        <button class="btn danger small" onclick="deleteUser(${u.id})">Delete</button>`}
+      </td>
+    </tr>`).join("");
+  } catch (e) {}
+}
+function openUserModal() { $("u-name").value = ""; $("u-pass").value = ""; $("u-role").value = "staff"; $("user-modal").classList.add("open"); }
+async function saveUser() {
+  try {
+    await api("POST", "/api/users", { username: $("u-name").value.trim(), password: $("u-pass").value, role: $("u-role").value });
+    $("user-modal").classList.remove("open"); loadUsers();
+  } catch (e) { alert(e.message); }
+}
+async function toggleRole(id, role) {
+  try { await api("PUT", `/api/users/${id}`, { role: role === "admin" ? "staff" : "admin" }); loadUsers(); }
+  catch (e) { alert(e.message); }
+}
+async function resetPw(id) {
+  const pw = prompt("New password:");
+  if (!pw) return;
+  try { await api("PUT", `/api/users/${id}`, { password: pw }); alert("Password updated."); }
+  catch (e) { alert(e.message); }
+}
+async function deleteUser(id) {
+  if (!confirm("Delete this user?")) return;
+  try { await api("DELETE", `/api/users/${id}`); loadUsers(); }
+  catch (e) { alert(e.message); }
+}
+
+// ---------- init ----------
+(async () => {
+  if (token) {
+    try { me = await api("GET", "/api/auth/me"); enterApp(); return; }
+    catch (e) { token = ""; localStorage.removeItem("cafe_token"); }
+  }
+  $("login-view").style.display = "flex";
+})();
 </script>
 </body>
 </html>
