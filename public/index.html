@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brew & Bean — Cafe Management</title>
+<style>
+  :root {
+    --bg: #faf6f0; --card: #ffffff; --ink: #2b2118; --muted: #8a7a6a;
+    --accent: #b4632a; --accent-dark: #8f4e20; --green: #2e7d4f; --red: #c0392b;
+    --amber: #c98a1b; --line: #ece2d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  header { background: linear-gradient(135deg, #3b2a1c, #5c3d24); color: #fff; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 20px; } header h1 span { color: #e8b04b; }
+  nav { display: flex; gap: 8px; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 62px; z-index: 9; }
+  nav button { border: 1px solid var(--line); background: #fff; padding: 9px 18px; border-radius: 999px; cursor: pointer; font-size: 14px; color: var(--ink); }
+  nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .view { display: none; } .view.active { display: block; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .card .value { font-size: 30px; font-weight: 700; margin-top: 6px; }
+  .card .value.accent { color: var(--accent); }
+  h2 { margin-bottom: 16px; font-size: 20px; }
+  table { width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 14px; border-collapse: collapse; overflow: hidden; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  th { background: #f6f0e6; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .btn { border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .btn.primary { background: var(--accent); color: #fff; } .btn.primary:hover { background: var(--accent-dark); }
+  .btn.ghost { background: #f1e9dc; color: var(--ink); }
+  .btn.danger { background: #fbe9e7; color: var(--red); }
+  .btn.small { padding: 5px 10px; font-size: 12px; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.pending { background: #fff3e0; color: var(--amber); }
+  .badge.preparing { background: #e3f2fd; color: #1565c0; }
+  .badge.served { background: #e8f5e9; color: var(--green); }
+  .badge.completed { background: #f1e9dc; color: var(--muted); }
+  .badge.cancelled { background: #fbe9e7; color: var(--red); }
+  .layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+  .menu-item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; cursor: pointer; transition: transform .1s; }
+  .menu-item:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .menu-item h4 { font-size: 15px; margin-bottom: 4px; }
+  .menu-item .cat { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .menu-item .price { color: var(--accent); font-weight: 700; margin-top: 6px; }
+  .cart { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; position: sticky; top: 130px; max-height: calc(100vh - 160px); overflow: auto; }
+  .cart-line { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+  .qty { display: flex; align-items: center; gap: 8px; }
+  .qty button { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  .total { font-size: 20px; font-weight: 700; margin: 12px 0; display: flex; justify-content: space-between; }
+  input, select, textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; margin-bottom: 10px; background: #fff; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 20; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px; padding: 24px; width: 420px; max-width: 92vw; }
+  .order-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .order-card .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-row button.active { background: var(--ink); color: #fff; }
+  .empty { color: var(--muted); text-align: center; padding: 40px; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } nav { top: 60px; overflow-x: auto; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>☕ Brew &amp; Bean <span>POS</span></h1>
+  <div id="clock"></div>
+</header>
+<nav>
+  <button data-view="dashboard" class="active">📊 Dashboard</button>
+  <button data-view="pos">🧾 New Order</button>
+  <button data-view="orders">📦 Orders</button>
+  <button data-view="menu">🍰 Menu</button>
+</nav>
+<main>
+  <!-- DASHBOARD -->
+  <section id="dashboard" class="view active">
+    <h2>Today's Overview</h2>
+    <div class="cards">
+      <div class="card"><div class="label">Revenue</div><div class="value accent" id="st-revenue">$0</div></div>
+      <div class="card"><div class="label">Orders</div><div class="value" id="st-orders">0</div></div>
+      <div class="card"><div class="label">Active Orders</div><div class="value" id="st-active">0</div></div>
+    </div>
+    <h2>Top Sellers</h2>
+    <table><thead><tr><th>Item</th><th>Sold</th><th>Revenue</th></tr></thead><tbody id="top-body"></tbody></table>
+  </section>
+
+  <!-- POS -->
+  <section id="pos" class="view">
+    <h2>New Order</h2>
+    <div class="layout">
+      <div>
+        <div class="filter-row" id="cat-filters"></div>
+        <div class="menu-grid" id="menu-grid"></div>
+      </div>
+      <div class="cart">
+        <h3>🧾 Current Order</h3>
+        <div class="form-row" style="margin-top:12px">
+          <input id="table-no" placeholder="Table #">
+          <select id="order-type"><option value="dine-in">Dine-in</option><option value="takeaway">Takeaway</option></select>
+        </div>
+        <div id="cart-lines"><div class="empty">Tap menu items to add</div></div>
+        <div class="total"><span>Total</span><span id="cart-total">$0.00</span></div>
+        <button class="btn primary" style="width:100%;padding:12px" onclick="placeOrder()">Place Order</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORDERS -->
+  <section id="orders" class="view">
+    <h2>Orders</h2>
+    <div class="filter-row" id="status-filters">
+      <button class="btn ghost active" data-s="all">All</button>
+      <button class="btn ghost" data-s="pending">Pending</button>
+      <button class="btn ghost" data-s="preparing">Preparing</button>
+      <button class="btn ghost" data-s="served">Served</button>
+      <button class="btn ghost" data-s="completed">Completed</button>
+      <button class="btn ghost" data-s="cancelled">Cancelled</button>
+    </div>
+    <div id="orders-list"></div>
+  </section>
+
+  <!-- MENU -->
+  <section id="menu" class="view">
+    <h2>Menu Management <button class="btn primary" style="float:right" onclick="openMenuModal()">+ Add Item</button></h2>
+    <table><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Available</th><th>Actions</th></tr></thead><tbody id="menu-body"></tbody></table>
+  </section>
+</main>
+
+<div class="modal-bg" id="menu-modal">
+  <div class="modal">
+    <h3 id="modal-title">Add Menu Item</h3>
+    <input type="hidden" id="m-id">
+    <input id="m-name" placeholder="Name (e.g. Latte)">
+    <div class="form-row">
+      <select id="m-category"><option>Coffee</option><option>Tea</option><option>Dessert</option><option>Food</option><option>Other</option></select>
+      <input id="m-price" type="number" step="0.01" placeholder="Price">
+    </div>
+    <textarea id="m-desc" placeholder="Description" rows="2"></textarea>
+    <label style="font-size:14px"><input type="checkbox" id="m-available" checked style="width:auto"> Available</label>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button class="btn ghost" onclick="closeMenuModal()">Cancel</button>
+      <button class="btn primary" onclick="saveMenuItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const api = (m, url, body) => fetch(url, { method: m, headers: {"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : undefined }).then(r => r.json());
+const $ = id => document.getElementById(id);
+const money = n => "$" + Number(n).toFixed(2);
+
+let menu = [], cart = {}, orderFilter = "all", catFilter = "all";
+
+// Navigation
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(x => x.classList.remove("active"));
+  b.classList.add("active"); $(b.dataset.view).classList.add("active");
+  if (b.dataset.view === "dashboard") loadStats();
+  if (b.dataset.view === "orders") loadOrders();
+  if (b.dataset.view === "menu") loadMenuTable();
+  if (b.dataset.view === "pos") loadMenu();
+});
+
+// Clock
+setInterval(() => { $("clock").textContent = new Date().toLocaleString(); }, 1000);
+
+// ---------- Dashboard ----------
+async function loadStats() {
+  const s = await api("GET", "/api/stats");
+  $("st-revenue").textContent = money(s.revenue);
+  $("st-orders").textContent = s.orders;
+  $("st-active").textContent = s.active;
+  $("top-body").innerHTML = s.top.length
+    ? s.top.map(t => `<tr><td>${t.name}</td><td>${t.sold}</td><td>${money(t.revenue)}</td></tr>`).join("")
+    : `<tr><td colspan="3" class="empty">No sales yet</td></tr>`;
+}
+
+// ---------- POS ----------
+async function loadMenu() {
+  menu = await api("GET", "/api/menu");
+  const cats = ["all", ...new Set(menu.map(m => m.category))];
+  $("cat-filters").innerHTML = cats.map(c => `<button class="btn ghost ${c===catFilter?'active':''}" onclick="setCat('${c}')">${c}</button>`).join("");
+  const items = menu.filter(m => (catFilter === "all" || m.category === catFilter) && m.available);
+  $("menu-grid").innerHTML = items.length
+    ? items.map(m => `<div class="menu-item" onclick="addToCart(${m.id})"><div class="cat">${m.category}</div><h4>${m.name}</h4><div class="price">${money(m.price)}</div></div>`).join("")
+    : `<div class="empty">No items</div>`;
+}
+function setCat(c) { catFilter = c; loadMenu(); }
+function addToCart(id) {
+  const m = menu.find(x => x.id === id); if (!m) return;
+  cart[id] = cart[id] || { ...m, qty: 0 };
+  cart[id].qty++;
+  renderCart();
+}
+function changeQty(id, d) {
+  cart[id].qty += d;
+  if (cart[id].qty <= 0) delete cart[id];
+  renderCart();
+}
+function renderCart() {
+  const lines = Object.values(cart);
+  $("cart-lines").innerHTML = lines.length
+    ? lines.map(l => `<div class="cart-line"><span>${l.name}</span><span class="qty"><button onclick="changeQty(${l.id},-1)">−</button>${l.qty}<button onclick="changeQty(${l.id},1)">+</button></span><span>${money(l.price*l.qty)}</span></div>`).join("")
+    : `<div class="empty">Tap menu items to add</div>`;
+  $("cart-total").textContent = money(lines.reduce((s,l) => s + l.price*l.qty, 0));
+}
+async function placeOrder() {
+  const items = Object.values(cart).map(l => ({ menu_id: l.id, qty: l.qty }));
+  if (!items.length) return alert("Cart is empty");
+  const o = await api("POST", "/api/orders", { table_no: $("table-no").value, order_type: $("order-type").value, items });
+  if (o.error) return alert(o.error);
+  cart = {}; $("table-no").value = ""; renderCart();
+  alert(`Order #${o.id} placed! Total ${money(o.total)}`);
+}
+
+// ---------- Orders ----------
+document.querySelectorAll("#status-filters button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#status-filters button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active"); orderFilter = b.dataset.s; loadOrders();
+});
+const NEXT = { pending: "preparing", preparing: "served", served: "completed" };
+async function loadOrders() {
+  const orders = await api("GET", "/api/orders");
+  const list = orders.filter(o => orderFilter === "all" || o.status === orderFilter);
+  $("orders-list").innerHTML = list.length ? list.map(o => `
+    <div class="order-card">
+      <div class="head">
+        <strong>#${o.id} — ${o.order_type === "dine-in" ? "Table " + (o.table_no || "?") : "Takeaway"}</strong>
+        <span class="badge ${o.status}">${o.status}</span>
+      </div>
+      <div style="font-size:13px;color:#8a7a6a;margin-bottom:8px">${o.created_at} · ${money(o.total)}</div>
+      ${o.items.map(i => `<div style="font-size:14px">${i.qty}× ${i.name} <span style="color:#8a7a6a">${money(i.price)}</span></div>`).join("")}
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        ${NEXT[o.status] ? `<button class="btn primary small" onclick="setStatus(${o.id},'${NEXT[o.status]}')">Mark ${NEXT[o.status]}</button>` : ""}
+        ${o.status !== "cancelled" && o.status !== "completed" ? `<button class="btn danger small" onclick="setStatus(${o.id},'cancelled')">Cancel</button>` : ""}
+        ${o.status === "cancelled" || o.status === "completed" ? `<button class="btn ghost small" onclick="deleteOrder(${o.id})">Delete</button>` : ""}
+      </div>
+    </div>`).join("")
+    : `<div class="empty">No orders</div>`;
+}
+async function setStatus(id, s) { await api("PUT", `/api/orders/${id}/status`, { status: s }); loadOrders(); loadStats(); }
+async function deleteOrder(id) { if (confirm("Delete order #" + id + "?")) { await api("DELETE", `/api/orders/${id}`); loadOrders(); } }
+
+// ---------- Menu management ----------
+async function loadMenuTable() {
+  menu = await api("GET", "/api/menu");
+  $("menu-body").innerHTML = menu.map(m => `<tr>
+    <td><strong>${m.name}</strong><div style="font-size:12px;color:#8a7a6a">${m.description||""}</div></td>
+    <td>${m.category}</td><td>${money(m.price)}</td>
+    <td>${m.available ? "✅" : "❌"}</td>
+    <td><button class="btn ghost small" onclick="openMenuModal(${m.id})">Edit</button>
+        <button class="btn danger small" onclick="deleteMenu(${m.id})">Delete</button></td>
+  </tr>`).join("");
+}
+function openMenuModal(id) {
+  $("modal-title").textContent = id ? "Edit Menu Item" : "Add Menu Item";
+  const m = id ? menu.find(x => x.id === id) : null;
+  $("m-id").value = id || "";
+  $("m-name").value = m ? m.name : "";
+  $("m-category").value = m ? m.category : "Coffee";
+  $("m-price").value = m ? m.price : "";
+  $("m-desc").value = m ? m.description : "";
+  $("m-available").checked = m ? !!m.available : true;
+  $("menu-modal").classList.add("open");
+}
+function closeMenuModal() { $("menu-modal").classList.remove("open"); }
+async function saveMenuItem() {
+  const id = $("m-id").value;
+  const body = { name: $("m-name").value, category: $("m-category").value, price: parseFloat($("m-price").value), description: $("m-desc").value, available: $("m-available").checked };
+  if (!body.name || isNaN(body.price)) return alert("Name and price required");
+  const r = id ? await api("PUT", `/api/menu/${id}`, body) : await api("POST", "/api/menu", body);
+  if (r.error) return alert(r.error);
+  closeMenuModal(); loadMenuTable();
+}
+async function deleteMenu(id) { if (confirm("Delete this item?")) { await api("DELETE", `/api/menu/${id}`); loadMenuTable(); } }
+
+// init
+loadStats(); loadMenu();
+</script>
+</body>
+</html>
