@@ -1,0 +1,4 @@
+node_modules/
+cafe.db
+*.log
+.DS_Store
